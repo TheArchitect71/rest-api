@@ -1,0 +1,11 @@
+const {test,before,after}=require('node:test');
+const assert=require('node:assert/strict');
+const app=require('../app');
+let server,url;
+before(async()=>{server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));url=`http://127.0.0.1:${server.address().port}`;});
+after(()=>new Promise(resolve=>server.close(resolve)));
+test('lists the bundled demonstration post',async()=>{const res=await fetch(url+'/feed/posts');assert.equal(res.status,200);const data=await res.json();assert.equal(data.posts[0].title,'First Post');assert.equal(data.posts[0].creator.name,'Descartes');});
+test('rejects invalid post input',async()=>{const res=await fetch(url+'/feed/post',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'no',content:'x'})});assert.equal(res.status,422);assert.equal((await res.json()).errors.length,2);});
+test('accepts and trims valid post input',async()=>{const res=await fetch(url+'/feed/post',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'  New local post  ',content:'  Offline content  '})});assert.equal(res.status,201);assert.deepEqual((await res.json()).post.title,'New local post');});
+test('serves the bundled image locally',async()=>{const res=await fetch(url+'/images/hiram.jpg');assert.equal(res.status,200);assert.match(res.headers.get('content-type'),/^image\/jpeg/);});
+test('handles browser preflight locally',async()=>{const res=await fetch(url+'/feed/post',{method:'OPTIONS'});assert.equal(res.status,204);assert.match(res.headers.get('access-control-allow-methods'),/POST/);});
